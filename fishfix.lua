@@ -1,43 +1,28 @@
---[[
+l--[[
     ╔═══════════════════════════════════════════════════════════════════════════╗
-    ║                    FISH IT - FULL EDITION                                 ║
-    ║               Built-in UI • Delta Compatible • Android                    ║
-    ╠═══════════════════════════════════════════════════════════════════════════╣
-    ║  Features:                                                                ║
-    ║  ✅ Auto Fish (Normal/Turbo)     ✅ Auto Sell (Timer)                     ║
-    ║  ✅ Auto Favorite (Rarity)       ✅ 22 Teleport Locations                 ║
-    ║  ✅ Auto Weather                 ✅ Auto Event                            ║
-    ║  ✅ Water Walk                   ✅ FPS Boost                             ║
-    ║  ✅ Performance HUD              ✅ Server Hop/Rejoin                     ║
-    ║  ✅ Player Teleport              ✅ Equipment (Diving/Radar)              ║
+    ║                         FISH IT AUTO FISHER                               ║
+    ║                    Delta Executor • Android Ready                         ║
     ╚═══════════════════════════════════════════════════════════════════════════╝
 ]]
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 1: CLEANUP
---// ══════════════════════════════════════════════════════════════════════════
+--// CLEANUP
 if getgenv().FishIt_Running then
     getgenv().FishIt_Running = false
     task.wait(0.3)
 end
-
 pcall(function()
     for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
         if gui.Name:find("FishIt") then gui:Destroy() end
     end
 end)
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 2: SERVICES
---// ══════════════════════════════════════════════════════════════════════════
+--// SERVICES
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
-local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
@@ -45,9 +30,7 @@ local Workspace = game:GetService("Workspace")
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 3: REMOTES
---// ══════════════════════════════════════════════════════════════════════════
+--// REMOTES
 local net = RS.Packages._Index["sleitnick_net@0.2.0"].net
 
 local R = {
@@ -56,8 +39,6 @@ local R = {
     Complete = net["RE/FishingCompleted"],
     Cancel = net["RF/CancelFishingInputs"],
     Sell = net["RF/SellAllItems"],
-    Equip = net["RE/EquipToolFromHotbar"],
-    Unequip = net["RE/UnequipToolFromHotbar"],
     Favorite = net["RE/FavoriteItem"],
     AutoGreat = net["RF/UpdateAutoFishingState"],
     NewFish = net["RE/ObtainedNewFishNotification"],
@@ -66,75 +47,61 @@ local R = {
     Weather = net["RF/PurchaseWeatherEvent"],
 }
 
-print("[FishIt] Remotes loaded")
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 4: CONFIG & STATE
---// ══════════════════════════════════════════════════════════════════════════
+--// CONFIG
 local Args = {-1.115296483039856, 0, 1763651451.636425}
 
 local CFG = {
-    ChargeDelay = 1.15,
-    CatchDelay = 0.56,
-    ResetDelay = 0.2,
-    SellInterval = 60,
-    FavRarities = {[6]=true, [7]=true}, -- Mythic, Secret
-    WeatherTargets = {},
+    Speed = "Fast",      -- "Fast", "Normal", "Safe"
+    SellTime = 60,       -- seconds
+    FavRarity = "Mythic" -- "Mythic", "Legendary", "Epic", "All"
 }
 
 local STATE = {
     Fishing = false,
-    Turbo = true,
-    AutoGreat = true,
     AutoSell = false,
     AutoFav = false,
     AutoWeather = false,
-    AutoEvent = false,
     WaterWalk = false,
     FPSBoost = false,
-    No3D = false,
-    ShowHUD = false,
     Count = 0,
 }
 
 getgenv().FishIt_Running = true
-getgenv().FishIt_State = STATE
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 5: WAYPOINTS (22 LOCATIONS)
---// ══════════════════════════════════════════════════════════════════════════
+--// SPEED PRESETS
+local SPEEDS = {
+    Fast = {charge = 1.10, catch = 0.50, reset = 0.15, turbo = true},
+    Normal = {charge = 1.30, catch = 0.70, reset = 0.25, turbo = true},
+    Safe = {charge = 1.50, catch = 1.00, reset = 0.35, turbo = false},
+}
+
+--// WAYPOINTS
 local WP = {
-    ["Fisherman Island"] = Vector3.new(-33, 10, 2770),
-    ["Traveling Merchant"] = Vector3.new(-135, 2, 2764),
+    ["Spawn"] = Vector3.new(-33, 10, 2770),
     ["Kohana"] = Vector3.new(-626, 16, 588),
     ["Kohana Lava"] = Vector3.new(-594, 59, 112),
+    ["Coral Reef"] = Vector3.new(-3138, 4, 2132),
+    ["Sisyphus"] = Vector3.new(-3657, -134, -963),
+    ["Treasure Room"] = Vector3.new(-3604, -284, -1632),
     ["Esoteric Island"] = Vector3.new(1991, 6, 1390),
     ["Esoteric Depths"] = Vector3.new(3240, -1302, 1404),
-    ["Tropical Grove"] = Vector3.new(-2132, 53, 3630),
-    ["Coral Reef"] = Vector3.new(-3138, 4, 2132),
-    ["Weather Machine"] = Vector3.new(-1517, 3, 1910),
-    ["Sisyphus Statue"] = Vector3.new(-3657, -134, -963),
-    ["Treasure Room"] = Vector3.new(-3604, -284, -1632),
     ["Ancient Jungle"] = Vector3.new(1463, 8, -358),
     ["Ancient Ruin"] = Vector3.new(6067, -586, 4714),
-    ["Sacred Temple"] = Vector3.new(1476, -22, -632),
-    ["Classic Island"] = Vector3.new(1433, 44, 2755),
     ["Iron Cavern"] = Vector3.new(-8798, -585, 241),
-    ["Iron Cafe"] = Vector3.new(-8647, -548, 160),
     ["Crater Island"] = Vector3.new(1070, 2, 5102),
-    ["Christmas Island"] = Vector3.new(1175, 24, 1558),
-    ["Underground Cellar"] = Vector3.new(2135, -91, -700),
+    ["Tropical Grove"] = Vector3.new(-2132, 53, 3630),
+    ["Weather Machine"] = Vector3.new(-1517, 3, 1910),
+    ["Underground"] = Vector3.new(2135, -91, -700),
+    ["Classic Island"] = Vector3.new(1433, 44, 2755),
+    ["Pirate Cove"] = Vector3.new(3405, 10, 3350),
     ["Christmas Cave"] = Vector3.new(715, -487, 8910),
-    ["Mount Hallow"] = Vector3.new(2136, 78, 3272),
 }
 
 local WPNames = {}
 for n in pairs(WP) do table.insert(WPNames, n) end
 table.sort(WPNames)
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 6: UTILITIES
---// ══════════════════════════════════════════════════════════════════════════
+--// UTILS
 local function HRP()
     local c = Player.Character
     return c and c:FindFirstChild("HumanoidRootPart")
@@ -145,38 +112,11 @@ local function TP(pos)
     if h then
         h.AssemblyLinearVelocity = Vector3.zero
         h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-        return true
-    end
-    return false
-end
-
-local function SafeTP(pos)
-    for _ = 1, 5 do
-        local h = HRP()
-        if h then
-            h.AssemblyLinearVelocity = Vector3.zero
-            h.CFrame = CFrame.new(pos)
-        end
-        task.wait(0.08)
     end
 end
 
-local function GetPlayers()
-    local list = {}
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= Player then
-            table.insert(list, p.Name)
-        end
-    end
-    table.sort(list)
-    return list
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 7: FISHING BLOCKER
---// ══════════════════════════════════════════════════════════════════════════
+--// BLOCKER
 local BLOCKED = {[R.Charge]=1, [R.Request]=1, [R.Complete]=1, [R.Cancel]=1}
-
 if hookmetamethod and checkcaller then
     local old
     old = hookmetamethod(game, "__namecall", function(self, ...)
@@ -187,12 +127,9 @@ if hookmetamethod and checkcaller then
         end
         return old(self, ...)
     end)
-    print("[FishIt] Blocker installed")
 end
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 8: SPAWN LIMITER
---// ══════════════════════════════════════════════════════════════════════════
+--// SPAWN LIMITER
 local spawns = 0
 local function Light(fn)
     if spawns >= 4 then return end
@@ -200,80 +137,63 @@ local function Light(fn)
     task.spawn(function() pcall(fn); spawns -= 1 end)
 end
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 9: FISHING LOGIC
---// ══════════════════════════════════════════════════════════════════════════
+--// FISHING
 local function Fish()
-    if STATE.AutoGreat then pcall(function() R.AutoGreat:InvokeServer(true) end) end
+    local speed = SPEEDS[CFG.Speed]
+    
+    pcall(function() R.AutoGreat:InvokeServer(true) end)
     pcall(function() R.Cancel:InvokeServer() end)
     task.wait(0.05)
     
     while STATE.Fishing do
-        if STATE.Turbo then
+        if speed.turbo then
             Light(function() R.Charge:InvokeServer() end)
             task.wait(0.01)
             Light(function() R.Request:InvokeServer(unpack(Args)) end)
-            task.wait(CFG.ChargeDelay)
+            task.wait(speed.charge)
         else
             pcall(function() R.Charge:InvokeServer() end)
             task.wait(0.05)
             pcall(function() R.Request:InvokeServer(unpack(Args)) end)
-            task.wait(CFG.CatchDelay)
+            task.wait(speed.catch)
         end
         
         pcall(function() R.Complete:FireServer() end)
-        task.wait(CFG.ResetDelay)
+        task.wait(speed.reset)
         pcall(function() R.Cancel:InvokeServer() end)
         task.wait(0.01)
         
         STATE.Count += 1
     end
     
-    if STATE.AutoGreat then pcall(function() R.AutoGreat:InvokeServer(false) end) end
+    pcall(function() R.AutoGreat:InvokeServer(false) end)
 end
 
 local function StartFish()
     if STATE.Fishing then return end
     STATE.Fishing = true
     task.spawn(Fish)
-    print("[FishIt] Fishing started", STATE.Turbo and "(Turbo)" or "(Normal)")
 end
 
 local function StopFish()
     STATE.Fishing = false
     pcall(function() R.Complete:FireServer() end)
     pcall(function() R.Cancel:InvokeServer() end)
-    print("[FishIt] Fishing stopped. Count:", STATE.Count)
 end
 
-local function Unstuck()
-    pcall(function() R.Complete:FireServer() end)
-    pcall(function() R.Cancel:InvokeServer() end)
-    print("[FishIt] Unstuck")
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 10: AUTO SELL
---// ══════════════════════════════════════════════════════════════════════════
-local function SellNow()
-    pcall(function() R.Sell:InvokeServer() end)
-    print("[FishIt] Sold all")
-end
-
+--// AUTO SELL
 task.spawn(function()
     while getgenv().FishIt_Running do
         if STATE.AutoSell then
-            task.wait(CFG.SellInterval)
-            if STATE.AutoSell then SellNow() end
+            task.wait(CFG.SellTime)
+            if STATE.AutoSell then pcall(function() R.Sell:InvokeServer() end) end
         else
             task.wait(1)
         end
     end
 end)
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 11: AUTO FAVORITE
---// ══════════════════════════════════════════════════════════════════════════
+--// AUTO FAVORITE
 local FishDB = {}
 pcall(function()
     for _, m in ipairs(RS.Items:GetChildren()) do
@@ -285,13 +205,15 @@ pcall(function()
         end
     end
 end)
-print("[FishIt] FishDB:", #FishDB)
 
+local RARITY_MIN = {Mythic = 6, Legendary = 5, Epic = 4, All = 1}
 local known = {}
+
 local function CheckFav(item)
     if not item or known[item.UUID] then return end
     local tier = FishDB[item.Id]
-    if tier and CFG.FavRarities[tier] and not item.Favorited then
+    local minTier = RARITY_MIN[CFG.FavRarity] or 6
+    if tier and tier >= minTier and not item.Favorited then
         pcall(function() R.Favorite:FireServer(item.UUID) end)
     end
     known[item.UUID] = true
@@ -314,308 +236,72 @@ pcall(function()
     end)
 end)
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 12: AUTO WEATHER
---// ══════════════════════════════════════════════════════════════════════════
+--// AUTO WEATHER
 local WeatherConn = nil
-
 local function StartWeather()
     if WeatherConn then WeatherConn:Disconnect() end
-    
     pcall(function()
         local Replion = require(RS.Packages.Replion)
         local Events = Replion.Client:WaitReplion("Events")
-        
         local function Check()
-            if not STATE.AutoWeather or #CFG.WeatherTargets == 0 then return end
-            local active = Events:Get("WeatherMachine") or {}
-            
-            for _, w in ipairs(CFG.WeatherTargets) do
-                local found = false
-                for _, a in ipairs(active) do
-                    if a == w then found = true; break end
-                end
-                if not found then
-                    pcall(function() R.Weather:InvokeServer(w) end)
-                    print("[FishIt] Purchased weather:", w)
-                    task.wait(0.2)
-                end
-            end
+            if not STATE.AutoWeather then return end
+            pcall(function() R.Weather:InvokeServer("Wind") end)
         end
-        
-        WeatherConn = Events:OnChange("WeatherMachine", function()
-            task.defer(Check)
-        end)
-        
+        WeatherConn = Events:OnChange("WeatherMachine", function() task.defer(Check) end)
         Check()
     end)
-    
-    print("[FishIt] Auto Weather started")
 end
 
-local function StopWeather()
-    if WeatherConn then WeatherConn:Disconnect(); WeatherConn = nil end
-    print("[FishIt] Auto Weather stopped")
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 13: AUTO EVENT
---// ══════════════════════════════════════════════════════════════════════════
-local EventConn = nil
-local EventSavedPos = nil
-local EventActive = false
-
-local function FindEvent()
-    for _, props in ipairs(Workspace:GetChildren()) do
-        if props.Name == "Props" then
-            for _, child in ipairs(props:GetChildren()) do
-                if child:IsA("Model") or child:IsA("Folder") then
-                    return child
-                end
-            end
-        end
-    end
-    return nil
-end
-
-local function StartAutoEvent()
-    if EventConn then EventConn:Disconnect() end
-    
-    EventConn = Workspace.DescendantAdded:Connect(function(inst)
-        if not STATE.AutoEvent then return end
-        if inst.Parent and inst.Parent.Name == "Props" then
-            local h = HRP()
-            if h then EventSavedPos = h.Position end
-            EventActive = true
-            task.wait(0.5)
-            SafeTP(inst:GetPivot().Position + Vector3.new(0, 2, 0))
-            print("[FishIt] Teleported to event:", inst.Name)
-        end
-    end)
-    
-    EventConn = Workspace.DescendantRemoving:Connect(function(inst)
-        if EventActive and inst.Parent and inst.Parent.Name == "Props" then
-            if EventSavedPos then
-                SafeTP(EventSavedPos + Vector3.new(0, 2, 0))
-                print("[FishIt] Returned from event")
-            end
-            EventActive = false
-            EventSavedPos = nil
-        end
-    end)
-    
-    print("[FishIt] Auto Event started")
-end
-
-local function StopAutoEvent()
-    if EventConn then EventConn:Disconnect(); EventConn = nil end
-    EventActive = false
-    EventSavedPos = nil
-    print("[FishIt] Auto Event stopped")
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 14: WATER WALK
---// ══════════════════════════════════════════════════════════════════════════
-local WaterPart = nil
-local WaterConn = nil
-
+--// WATER WALK
+local WaterPart, WaterConn = nil, nil
 local function StartWater()
     if WaterPart then return end
     local h = HRP()
     if not h then return end
-    
     local waterY = h.Position.Y - 2
-    
     WaterPart = Instance.new("Part")
-    WaterPart.Name = "FishIt_Water"
     WaterPart.Size = Vector3.new(18, 1, 18)
     WaterPart.Anchored = true
     WaterPart.CanCollide = true
     WaterPart.Transparency = 1
     WaterPart.Parent = Workspace
-    
     WaterConn = RunService.Heartbeat:Connect(function()
-        local hrp = HRP()
-        if hrp and WaterPart then
-            WaterPart.CFrame = CFrame.new(hrp.Position.X, waterY + 0.1, hrp.Position.Z)
+        local hr = HRP()
+        if hr and WaterPart then
+            WaterPart.CFrame = CFrame.new(hr.Position.X, waterY + 0.1, hr.Position.Z)
         end
     end)
-    
-    print("[FishIt] Water Walk enabled")
 end
 
 local function StopWater()
     if WaterConn then WaterConn:Disconnect(); WaterConn = nil end
     if WaterPart then WaterPart:Destroy(); WaterPart = nil end
-    print("[FishIt] Water Walk disabled")
 end
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 15: FPS BOOST
---// ══════════════════════════════════════════════════════════════════════════
+--// FPS BOOST
 local function ToggleFPS(on)
     STATE.FPSBoost = on
-    
     if on then
         pcall(function()
             settings().Rendering.QualityLevel = 1
             Lighting.GlobalShadows = false
             if setfpscap then setfpscap(30) end
         end)
-        
         for _, v in pairs(game:GetDescendants()) do
             pcall(function()
-                if v:IsA("BasePart") then
-                    v.Material = Enum.Material.Plastic
-                    v.CastShadow = false
-                end
+                if v:IsA("BasePart") then v.Material = Enum.Material.Plastic; v.CastShadow = false end
             end)
         end
-        print("[FishIt] FPS Boost ON")
     else
         pcall(function()
             settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
             Lighting.GlobalShadows = true
             if setfpscap then setfpscap(60) end
         end)
-        print("[FishIt] FPS Boost OFF")
     end
 end
 
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 16: NO 3D RENDERING
---// ══════════════════════════════════════════════════════════════════════════
-local function Toggle3D(off)
-    STATE.No3D = off
-    if RunService.Set3dRenderingEnabled then
-        pcall(function() RunService:Set3dRenderingEnabled(not off) end)
-        print("[FishIt] 3D Rendering:", off and "OFF" or "ON")
-    end
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 17: PERFORMANCE HUD
---// ══════════════════════════════════════════════════════════════════════════
-local HUD = nil
-local HUDConn = nil
-local fps, frames, lastTick = 0, 0, os.clock()
-
-RunService.RenderStepped:Connect(function()
-    frames += 1
-    if os.clock() - lastTick >= 1 then
-        fps = frames
-        frames = 0
-        lastTick = os.clock()
-    end
-end)
-
-local function CreateHUD()
-    if HUD then return end
-    
-    HUD = Instance.new("ScreenGui")
-    HUD.Name = "FishIt_HUD"
-    HUD.ResetOnSpawn = false
-    pcall(function() HUD.Parent = CoreGui end)
-    if not HUD.Parent then HUD.Parent = PlayerGui end
-    
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(0, 180, 0, 70)
-    f.Position = UDim2.new(0, 10, 0, 100)
-    f.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    f.BackgroundTransparency = 0.2
-    f.Parent = HUD
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
-    
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -10, 1, 0)
-    l.Position = UDim2.new(0, 5, 0, 0)
-    l.BackgroundTransparency = 1
-    l.TextColor3 = Color3.fromRGB(200, 255, 200)
-    l.TextSize = 12
-    l.Font = Enum.Font.Code
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.TextYAlignment = Enum.TextYAlignment.Top
-    l.Parent = f
-    
-    HUDConn = RunService.Heartbeat:Connect(function()
-        if not STATE.ShowHUD then return end
-        
-        local ping = 0
-        pcall(function()
-            ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
-        end)
-        
-        local mem = 0
-        pcall(function()
-            mem = math.floor(Stats:GetTotalMemoryUsageMb())
-        end)
-        
-        l.Text = string.format(
-            "FPS: %d\nPing: %dms\nMemory: %dMB\nFish: %d",
-            fps, ping, mem, STATE.Count
-        )
-    end)
-end
-
-local function ToggleHUD(on)
-    STATE.ShowHUD = on
-    
-    if on then
-        CreateHUD()
-        HUD.Enabled = true
-    else
-        if HUD then HUD.Enabled = false end
-    end
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 18: SERVER HOP / REJOIN
---// ══════════════════════════════════════════════════════════════════════════
-local function ServerHop()
-    print("[FishIt] Finding new server...")
-    
-    local TPS = game:GetService("TeleportService")
-    local Api = "https://games.roblox.com/v1/games/"
-    local PlaceId = game.PlaceId
-    
-    local function List(cursor)
-        local url = Api..PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
-        if cursor then url = url .. "&cursor=" .. cursor end
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end
-    
-    local Server, Next
-    repeat
-        local Servers = List(Next)
-        Server = Servers.data[1]
-        Next = Servers.nextPageCursor
-    until Server
-    
-    TPS:TeleportToPlaceInstance(PlaceId, Server.id, Player)
-end
-
-local function Rejoin()
-    print("[FishIt] Rejoining...")
-    game:GetService("TeleportService"):Teleport(game.PlaceId, Player)
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 19: EQUIPMENT
---// ══════════════════════════════════════════════════════════════════════════
-local function EquipTank()
-    pcall(function() R.Tank:InvokeServer(105) end)
-    print("[FishIt] Diving gear equipped")
-end
-
-local function ToggleRadar(on)
-    pcall(function() R.Radar:InvokeServer(on) end)
-    print("[FishIt] Radar:", on and "ON" or "OFF")
-end
-
---// ══════════════════════════════════════════════════════════════════════════
---// SECTION 20: ANTI-AFK
---// ══════════════════════════════════════════════════════════════════════════
+--// ANTI-AFK
 pcall(function()
     if getconnections then
         for _, c in pairs(getconnections(Player.Idled)) do pcall(function() c:Disable() end) end
@@ -625,172 +311,172 @@ pcall(function()
         VirtualUser:ClickButton2(Vector2.new())
     end)
 end)
-print("[FishIt] Anti-AFK enabled")
 
 --// ══════════════════════════════════════════════════════════════════════════
---// SECTION 21: BUILT-IN UI
+--// UI
 --// ══════════════════════════════════════════════════════════════════════════
 local G = Instance.new("ScreenGui")
 G.Name = "FishIt_UI"
 G.ResetOnSpawn = false
-G.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 pcall(function() G.Parent = CoreGui end)
 if not G.Parent then G.Parent = PlayerGui end
 
 local C = {
-    bg = Color3.fromRGB(25, 25, 30),
-    accent = Color3.fromRGB(80, 200, 120),
+    bg = Color3.fromRGB(20, 22, 28),
+    header = Color3.fromRGB(50, 180, 100),
+    btn = Color3.fromRGB(35, 38, 48),
+    btnHover = Color3.fromRGB(50, 55, 70),
+    on = Color3.fromRGB(60, 180, 100),
+    off = Color3.fromRGB(180, 60, 60),
     text = Color3.fromRGB(255, 255, 255),
-    btn = Color3.fromRGB(40, 40, 50),
-    on = Color3.fromRGB(80, 200, 120),
-    off = Color3.fromRGB(200, 80, 80),
-    tab = Color3.fromRGB(35, 35, 45),
-    tabActive = Color3.fromRGB(60, 60, 80),
+    dim = Color3.fromRGB(150, 150, 150),
+    accent = Color3.fromRGB(80, 200, 130),
 }
 
--- Main Frame
+-- Main Window
 local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.new(0, 340, 0, 450)
-Main.Position = UDim2.new(0.5, -170, 0.5, -225)
+Main.Size = UDim2.new(0, 300, 0, 420)
+Main.Position = UDim2.new(0.5, -150, 0.5, -210)
 Main.BackgroundColor3 = C.bg
 Main.BorderSizePixel = 0
 Main.Parent = G
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
--- Title
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.BackgroundColor3 = C.accent
-Title.BorderSizePixel = 0
-Title.Text = "🎣 Fish It - Full Edition"
-Title.TextColor3 = C.text
-Title.TextSize = 16
-Title.Font = Enum.Font.GothamBold
-Title.Parent = Main
-Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 12)
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundColor3 = C.header
+Header.BorderSizePixel = 0
+Header.Parent = Main
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
 
--- Close
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -50, 1, 0)
+TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "🎣 Fish It Auto"
+TitleLabel.TextColor3 = C.text
+TitleLabel.TextSize = 16
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Header
+
+-- Fish Count (shows up to 9)
+local FishCount = Instance.new("TextLabel")
+FishCount.Size = UDim2.new(0, 80, 0, 24)
+FishCount.Position = UDim2.new(1, -90, 0.5, -12)
+FishCount.BackgroundColor3 = Color3.fromRGB(30, 100, 60)
+FishCount.Text = "🐟 0"
+FishCount.TextColor3 = C.text
+FishCount.TextSize = 12
+FishCount.Font = Enum.Font.GothamBold
+FishCount.Parent = Header
+Instance.new("UICorner", FishCount).CornerRadius = UDim.new(0, 6)
+
+-- Update fish count display (show fish icons based on catches)
+task.spawn(function()
+    local lastCount = 0
+    while getgenv().FishIt_Running do
+        if STATE.Count ~= lastCount then
+            lastCount = STATE.Count
+            -- Show fish icons (max 9)
+            local fishIcons = ""
+            local displayNum = math.min(STATE.Count % 10, 9)
+            if displayNum == 0 and STATE.Count > 0 then displayNum = 9 end
+            for i = 1, displayNum do
+                fishIcons = fishIcons .. "🐟"
+            end
+            FishCount.Text = fishIcons .. " " .. STATE.Count
+        end
+        task.wait(0.5)
+    end
+end)
+
+-- Close Button
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 25, 0, 25)
-CloseBtn.Position = UDim2.new(1, -30, 0, 5)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-CloseBtn.Text = "X"
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0.5, -15)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = C.text
-CloseBtn.TextSize = 12
+CloseBtn.TextSize = 14
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.Parent = Main
+CloseBtn.Parent = Header
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false end)
 
--- Tab Container
-local TabBar = Instance.new("Frame")
-TabBar.Size = UDim2.new(1, -10, 0, 30)
-TabBar.Position = UDim2.new(0, 5, 0, 40)
-TabBar.BackgroundTransparency = 1
-TabBar.Parent = Main
+-- Content Scroll
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -16, 1, -50)
+Scroll.Position = UDim2.new(0, 8, 0, 45)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 3
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 700)
+Scroll.Parent = Main
 
-local TabLayout = Instance.new("UIListLayout")
-TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.Padding = UDim.new(0, 5)
-TabLayout.Parent = TabBar
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 6)
+Layout.Parent = Scroll
 
--- Pages Container
-local Pages = Instance.new("Frame")
-Pages.Size = UDim2.new(1, -10, 1, -80)
-Pages.Position = UDim2.new(0, 5, 0, 75)
-Pages.BackgroundTransparency = 1
-Pages.Parent = Main
+Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, Layout.AbsoluteContentSize.Y + 10)
+end)
 
--- Tab System
-local tabs = {}
-local pages = {}
-local currentTab = nil
-
-local function CreateTab(name, icon)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 60, 1, 0)
-    btn.BackgroundColor3 = C.tab
-    btn.Text = icon .. " " .. name
-    btn.TextColor3 = C.text
-    btn.TextSize = 10
-    btn.Font = Enum.Font.GothamBold
-    btn.Parent = TabBar
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    
-    local page = Instance.new("ScrollingFrame")
-    page.Size = UDim2.new(1, 0, 1, 0)
-    page.BackgroundTransparency = 1
-    page.ScrollBarThickness = 4
-    page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.Visible = false
-    page.Parent = Pages
-    
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 6)
-    layout.Parent = page
-    
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
-    end)
-    
-    tabs[name] = btn
-    pages[name] = page
-    
-    btn.MouseButton1Click:Connect(function()
-        if currentTab then
-            tabs[currentTab].BackgroundColor3 = C.tab
-            pages[currentTab].Visible = false
-        end
-        currentTab = name
-        btn.BackgroundColor3 = C.tabActive
-        page.Visible = true
-    end)
-    
-    return page
-end
-
--- UI Helpers
-local function Section(parent, text)
+--// UI HELPERS
+local function AddSection(text)
     local s = Instance.new("TextLabel")
-    s.Size = UDim2.new(1, -10, 0, 20)
+    s.Size = UDim2.new(1, 0, 0, 22)
     s.BackgroundTransparency = 1
-    s.Text = "━━ " .. text .. " ━━"
+    s.Text = "▸ " .. text
     s.TextColor3 = C.accent
-    s.TextSize = 11
+    s.TextSize = 12
     s.Font = Enum.Font.GothamBold
-    s.Parent = parent
+    s.TextXAlignment = Enum.TextXAlignment.Left
+    s.Parent = Scroll
 end
 
-local function Toggle(parent, name, default, callback)
+local function AddToggle(name, desc, default, callback)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -10, 0, 32)
+    f.Size = UDim2.new(1, 0, 0, 40)
     f.BackgroundColor3 = C.btn
     f.BorderSizePixel = 0
-    f.Parent = parent
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+    f.Parent = Scroll
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
     
     local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(0.65, 0, 1, 0)
-    l.Position = UDim2.new(0, 8, 0, 0)
+    l.Size = UDim2.new(0.65, -8, 0, 20)
+    l.Position = UDim2.new(0, 10, 0, 4)
     l.BackgroundTransparency = 1
     l.Text = name
     l.TextColor3 = C.text
-    l.TextSize = 12
-    l.Font = Enum.Font.Gotham
+    l.TextSize = 13
+    l.Font = Enum.Font.GothamBold
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.Parent = f
     
+    if desc then
+        local d = Instance.new("TextLabel")
+        d.Size = UDim2.new(0.65, -8, 0, 14)
+        d.Position = UDim2.new(0, 10, 0, 22)
+        d.BackgroundTransparency = 1
+        d.Text = desc
+        d.TextColor3 = C.dim
+        d.TextSize = 10
+        d.Font = Enum.Font.Gotham
+        d.TextXAlignment = Enum.TextXAlignment.Left
+        d.Parent = f
+    end
+    
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0, 45, 0, 22)
-    b.Position = UDim2.new(1, -55, 0.5, -11)
+    b.Size = UDim2.new(0, 55, 0, 28)
+    b.Position = UDim2.new(1, -65, 0.5, -14)
     b.BackgroundColor3 = default and C.on or C.off
     b.Text = default and "ON" or "OFF"
     b.TextColor3 = C.text
-    b.TextSize = 10
+    b.TextSize = 11
     b.Font = Enum.Font.GothamBold
     b.Parent = f
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     
     local state = default
     b.MouseButton1Click:Connect(function()
@@ -807,256 +493,147 @@ local function Toggle(parent, name, default, callback)
     end
 end
 
-local function Button(parent, name, callback)
+local function AddButton(name, callback)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(1, -10, 0, 32)
+    b.Size = UDim2.new(1, 0, 0, 36)
     b.BackgroundColor3 = C.btn
     b.Text = name
     b.TextColor3 = C.text
-    b.TextSize = 12
-    b.Font = Enum.Font.Gotham
-    b.Parent = parent
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    b.TextSize = 13
+    b.Font = Enum.Font.GothamBold
+    b.Parent = Scroll
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
     b.MouseButton1Click:Connect(callback)
 end
 
-local function Dropdown(parent, name, options, callback)
+local function AddDropdown(name, options, default, callback)
     local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -10, 0, 32)
+    f.Size = UDim2.new(1, 0, 0, 36)
     f.BackgroundColor3 = C.btn
     f.BorderSizePixel = 0
-    f.Parent = parent
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+    f.Parent = Scroll
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
     
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0.45, 0, 1, 0)
-    l.Position = UDim2.new(0, 8, 0, 0)
+    l.Position = UDim2.new(0, 10, 0, 0)
     l.BackgroundTransparency = 1
     l.Text = name
     l.TextColor3 = C.text
-    l.TextSize = 11
-    l.Font = Enum.Font.Gotham
+    l.TextSize = 12
+    l.Font = Enum.Font.GothamBold
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.Parent = f
     
     local idx = 1
+    for i, v in ipairs(options) do
+        if v == default then idx = i break end
+    end
+    
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.5, -10, 0, 22)
-    b.Position = UDim2.new(0.5, 0, 0.5, -11)
+    b.Size = UDim2.new(0.48, -10, 0, 26)
+    b.Position = UDim2.new(0.52, 0, 0.5, -13)
     b.BackgroundColor3 = C.accent
-    b.Text = options[1] or "Select"
+    b.Text = options[idx]
     b.TextColor3 = C.text
-    b.TextSize = 10
+    b.TextSize = 11
     b.Font = Enum.Font.GothamBold
-    b.TextTruncate = Enum.TextTruncate.AtEnd
     b.Parent = f
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
     
     b.MouseButton1Click:Connect(function()
         idx = idx % #options + 1
         b.Text = options[idx]
         callback(options[idx])
     end)
-    
-    return function(opts)
-        options = opts
-        idx = 1
-        b.Text = options[1] or "Select"
-    end
-end
-
-local function Slider(parent, name, min, max, default, callback)
-    local f = Instance.new("Frame")
-    f.Size = UDim2.new(1, -10, 0, 45)
-    f.BackgroundColor3 = C.btn
-    f.BorderSizePixel = 0
-    f.Parent = parent
-    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
-    
-    local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -10, 0, 20)
-    l.Position = UDim2.new(0, 5, 0, 2)
-    l.BackgroundTransparency = 1
-    l.Text = name .. ": " .. default
-    l.TextColor3 = C.text
-    l.TextSize = 11
-    l.Font = Enum.Font.Gotham
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = f
-    
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -20, 0, 8)
-    bar.Position = UDim2.new(0, 10, 1, -15)
-    bar.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    bar.Parent = f
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-    
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    fill.BackgroundColor3 = C.accent
-    fill.Parent = bar
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-    
-    local dragging = false
-    
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-        end
-    end)
-    
-    bar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-           input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or 
-                         input.UserInputType == Enum.UserInputType.Touch) then
-            local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-            fill.Size = UDim2.new(pos, 0, 1, 0)
-            local val = math.floor((min + (max - min) * pos) * 100) / 100
-            l.Text = name .. ": " .. val
-            callback(val)
-        end
-    end)
 end
 
 --// ══════════════════════════════════════════════════════════════════════════
---// SECTION 22: BUILD TABS
+--// BUILD UI
 --// ══════════════════════════════════════════════════════════════════════════
 
--- TAB: FISH
-local fishPage = CreateTab("Fish", "🎣")
-Section(fishPage, "MODE")
-Dropdown(fishPage, "Mode", {"Turbo", "Normal"}, function(v)
-    STATE.Turbo = (v == "Turbo")
+AddSection("FISHING")
+
+AddDropdown("Speed", {"Fast", "Normal", "Safe"}, "Fast", function(v)
+    CFG.Speed = v
 end)
-Toggle(fishPage, "Auto Great", true, function(v) STATE.AutoGreat = v end)
 
-Section(fishPage, "DELAYS")
-Slider(fishPage, "Charge", 0.5, 2.0, 1.15, function(v) CFG.ChargeDelay = v end)
-Slider(fishPage, "Catch", 0.3, 2.0, 0.56, function(v) CFG.CatchDelay = v end)
-Slider(fishPage, "Reset", 0.1, 1.0, 0.2, function(v) CFG.ResetDelay = v end)
-
-Section(fishPage, "CONTROL")
-Toggle(fishPage, "🎣 START FISHING", false, function(v)
+AddToggle("🎣 Start Fishing", "Tap to start/stop auto fishing", false, function(v)
     if v then StartFish() else StopFish() end
 end)
-Button(fishPage, "🔧 Unstuck", Unstuck)
 
--- TAB: AUTO
-local autoPage = CreateTab("Auto", "⚡")
-Section(autoPage, "SELL")
-Toggle(autoPage, "Auto Sell", false, function(v) STATE.AutoSell = v end)
-Slider(autoPage, "Interval (sec)", 30, 300, 60, function(v) CFG.SellInterval = v end)
-Button(autoPage, "💰 Sell Now", SellNow)
-
-Section(autoPage, "FAVORITE")
-Dropdown(autoPage, "Rarity", {"Mythic+Secret", "Legendary+", "Epic+", "All"}, function(v)
-    CFG.FavRarities = {}
-    if v == "Mythic+Secret" then CFG.FavRarities = {[6]=true, [7]=true}
-    elseif v == "Legendary+" then CFG.FavRarities = {[5]=true, [6]=true, [7]=true}
-    elseif v == "Epic+" then CFG.FavRarities = {[4]=true, [5]=true, [6]=true, [7]=true}
-    else for i = 1, 7 do CFG.FavRarities[i] = true end end
+AddButton("🔧 Fix Stuck", function()
+    pcall(function() R.Complete:FireServer() end)
+    pcall(function() R.Cancel:InvokeServer() end)
 end)
-Toggle(autoPage, "Auto Favorite", false, function(v)
+
+AddSection("AUTO FEATURES")
+
+AddDropdown("Sell Every", {"30s", "60s", "120s", "300s"}, "60s", function(v)
+    CFG.SellTime = tonumber(v:gsub("s", ""))
+end)
+
+AddToggle("Auto Sell", "Sell otomatis tiap X detik", false, function(v)
+    STATE.AutoSell = v
+end)
+
+AddDropdown("Favorite", {"Mythic", "Legendary", "Epic", "All"}, "Mythic", function(v)
+    CFG.FavRarity = v
+end)
+
+AddToggle("Auto Favorite", "Tandai ikan langka otomatis", false, function(v)
     STATE.AutoFav = v
     if v then ScanInv() end
 end)
 
-Section(autoPage, "WEATHER")
-Dropdown(autoPage, "Weather", {"Wind", "Cloudy", "Snow", "Storm", "Radiant"}, function(v)
-    CFG.WeatherTargets = {v}
-end)
-Toggle(autoPage, "Auto Weather", false, function(v)
+AddToggle("Auto Weather", "Beli weather Wind otomatis", false, function(v)
     STATE.AutoWeather = v
-    if v then StartWeather() else StopWeather() end
+    if v then StartWeather() end
 end)
 
-Section(autoPage, "EVENT")
-Toggle(autoPage, "Auto Event TP", false, function(v)
-    STATE.AutoEvent = v
-    if v then StartAutoEvent() else StopAutoEvent() end
+AddSection("TELEPORT")
+
+local selectedWP = "Sisyphus"
+AddDropdown("Location", WPNames, "Sisyphus", function(v)
+    selectedWP = v
 end)
 
--- TAB: TP
-local tpPage = CreateTab("TP", "📍")
-Section(tpPage, "ISLANDS")
-
-local selectedWP = WPNames[1]
-Dropdown(tpPage, "Location", WPNames, function(v) selectedWP = v end)
-Button(tpPage, "🚀 Teleport", function()
+AddButton("📍 Teleport ke Lokasi", function()
     if WP[selectedWP] then TP(WP[selectedWP]) end
 end)
 
-Section(tpPage, "QUICK TP")
-for _, name in ipairs({"Sisyphus Statue", "Esoteric Depths", "Treasure Room", "Iron Cavern"}) do
-    Button(tpPage, "📍 " .. name, function() TP(WP[name]) end)
-end
+AddSection("QUICK TELEPORT")
 
-Section(tpPage, "PLAYER")
-local playerList = GetPlayers()
-local selectedPlayer = playerList[1] or ""
-local refreshPlayers = Dropdown(tpPage, "Player", #playerList > 0 and playerList or {"No players"}, function(v)
-    selectedPlayer = v
-end)
-Button(tpPage, "👤 TP to Player", function()
-    local p = Players:FindFirstChild(selectedPlayer)
-    if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-        TP(p.Character.HumanoidRootPart.Position + Vector3.new(3, 0, 0))
-    end
-end)
-Button(tpPage, "🔄 Refresh Players", function()
-    playerList = GetPlayers()
-    refreshPlayers(#playerList > 0 and playerList or {"No players"})
+AddButton("⭐ Sisyphus", function() TP(WP["Sisyphus"]) end)
+AddButton("🌊 Esoteric Depths", function() TP(WP["Esoteric Depths"]) end)
+AddButton("💎 Treasure Room", function() TP(WP["Treasure Room"]) end)
+AddButton("🏴‍☠️ Pirate Cove", function() TP(WP["Pirate Cove"]) end)
+
+AddSection("BOOST & TOOLS")
+
+AddToggle("FPS Boost", "Grafik rendah, performa tinggi", false, function(v)
+    ToggleFPS(v)
 end)
 
-Section(tpPage, "UTILS")
-Button(tpPage, "📋 Copy Position", function()
-    local h = HRP()
-    if h then
-        local p = h.Position
-        local s = string.format("Vector3.new(%.0f, %.0f, %.0f)", p.X, p.Y, p.Z)
-        if setclipboard then setclipboard(s) end
-    end
-end)
-
--- TAB: MISC
-local miscPage = CreateTab("Misc", "⚙️")
-Section(miscPage, "PERFORMANCE")
-Toggle(miscPage, "FPS Boost (Potato)", false, ToggleFPS)
-Toggle(miscPage, "No 3D (Extreme)", false, Toggle3D)
-Toggle(miscPage, "Show HUD", false, ToggleHUD)
-
-Section(miscPage, "PLAYER")
-Toggle(miscPage, "Water Walk", false, function(v)
+AddToggle("Water Walk", "Jalan di atas air", false, function(v)
     STATE.WaterWalk = v
     if v then StartWater() else StopWater() end
 end)
 
-Section(miscPage, "EQUIPMENT")
-Button(miscPage, "🤿 Equip Diving Gear", EquipTank)
-Toggle(miscPage, "Toggle Radar", false, ToggleRadar)
+AddButton("🤿 Equip Diving Gear", function()
+    pcall(function() R.Tank:InvokeServer(105) end)
+end)
 
-Section(miscPage, "SERVER")
-Button(miscPage, "🔄 Server Hop", ServerHop)
-Button(miscPage, "🔄 Rejoin", Rejoin)
-
--- Select first tab
-tabs["Fish"].BackgroundColor3 = C.tabActive
-pages["Fish"].Visible = true
-currentTab = "Fish"
+AddButton("💰 Sell Now", function()
+    pcall(function() R.Sell:InvokeServer() end)
+end)
 
 --// ══════════════════════════════════════════════════════════════════════════
---// SECTION 23: DRAGGABLE
+--// DRAGGABLE
 --// ══════════════════════════════════════════════════════════════════════════
 local dragging, dragStart, startPos
 
-Title.InputBegan:Connect(function(input)
+Header.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or 
        input.UserInputType == Enum.UserInputType.Touch then
         dragging = true
@@ -1065,7 +642,7 @@ Title.InputBegan:Connect(function(input)
     end
 end)
 
-Title.InputEnded:Connect(function(input)
+Header.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or 
        input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
@@ -1084,31 +661,33 @@ UIS.InputChanged:Connect(function(input)
 end)
 
 --// ══════════════════════════════════════════════════════════════════════════
---// SECTION 24: TOGGLE BUTTON
+--// TOGGLE BUTTON
 --// ══════════════════════════════════════════════════════════════════════════
-local Btn = Instance.new("TextButton")
-Btn.Size = UDim2.new(0, 50, 0, 50)
-Btn.Position = UDim2.new(0, 10, 0.5, -25)
-Btn.BackgroundColor3 = C.accent
-Btn.Text = "🎣"
-Btn.TextSize = 22
-Btn.Parent = G
-Instance.new("UICorner", Btn).CornerRadius = UDim.new(1, 0)
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 10, 0.5, -25)
+ToggleBtn.BackgroundColor3 = C.header
+ToggleBtn.Text = "🎣"
+ToggleBtn.TextSize = 24
+ToggleBtn.Parent = G
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 
-Btn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+ToggleBtn.MouseButton1Click:Connect(function()
+    Main.Visible = not Main.Visible
+end)
 
--- Draggable button
+-- Draggable toggle button
 local btnDrag, btnStart, btnPos
 
-Btn.InputBegan:Connect(function(input)
+ToggleBtn.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         btnDrag = true
         btnStart = input.Position
-        btnPos = Btn.Position
+        btnPos = ToggleBtn.Position
     end
 end)
 
-Btn.InputEnded:Connect(function(input)
+ToggleBtn.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.Touch then
         btnDrag = false
     end
@@ -1117,18 +696,17 @@ end)
 UIS.InputChanged:Connect(function(input)
     if btnDrag and input.UserInputType == Enum.UserInputType.Touch then
         local delta = input.Position - btnStart
-        Btn.Position = UDim2.new(btnPos.X.Scale, btnPos.X.Offset + delta.X, btnPos.Y.Scale, btnPos.Y.Offset + delta.Y)
+        ToggleBtn.Position = UDim2.new(
+            btnPos.X.Scale, btnPos.X.Offset + delta.X,
+            btnPos.Y.Scale, btnPos.Y.Offset + delta.Y
+        )
     end
 end)
 
---// ══════════════════════════════════════════════════════════════════════════
 --// DONE
---// ══════════════════════════════════════════════════════════════════════════
 print([[
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                    FISH IT - FULL EDITION LOADED                          ║
-╠═══════════════════════════════════════════════════════════════════════════╣
-║  4 Tabs: Fish | Auto | TP | Misc                                          ║
-║  Tap 🎣 button to toggle UI                                               ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════════════════╗
+║      FISH IT AUTO - LOADED!                 ║
+║      Tap 🎣 to open menu                    ║
+╚═════════════════════════════════════════════╝
 ]])
