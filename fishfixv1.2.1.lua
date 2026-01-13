@@ -1,4 +1,4 @@
-l--[[
+--[[
     ╔═══════════════════════════════════════════════════════════════════════════╗
     ║                    FISH IT - ULTRA EDITION                                ║
     ║               Sidebar UI • Delta Compatible • Android                     ║
@@ -327,6 +327,27 @@ local function ScanInv()
             for _, item in pairs(inv.Items) do CheckFav(item) end
         end
     end)
+end
+
+-- UN-FAVORITE ALL: Hapus favorite dari semua ikan
+local function UnfavoriteAll()
+    local count = 0
+    pcall(function()
+        local Replion = require(RS.Packages.Replion)
+        local Data = Replion.Client:WaitReplion("Data")
+        local inv = Data:Get("Inventory")
+        if inv and inv.Items then
+            for _, item in pairs(inv.Items) do
+                if item and item.Favorited then
+                    pcall(function() R.Favorite:FireServer(item.UUID) end)
+                    count = count + 1
+                    task.wait(0.05)  -- Small delay to avoid rate limit
+                end
+            end
+        end
+    end)
+    print("[FishIt] Un-favorited", count, "items")
+    return count
 end
 
 pcall(function()
@@ -978,6 +999,10 @@ end)
 Toggle(autoPage, "Auto Favorite", false, function(v)
     STATE.AutoFav = v
     if v then ScanInv() end
+end)
+Button(autoPage, "❌ Un-Favorite Semua Ikan", function()
+    local count = UnfavoriteAll()
+    print("[FishIt] Selesai un-favorite", count, "ikan")
 end)
 
 Section(autoPage, "AUTO CUACA")
