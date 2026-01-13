@@ -1,4 +1,4 @@
---[[
+l--[[
     ╔═══════════════════════════════════════════════════════════════════════════╗
     ║                    FISH IT - ULTRA EDITION                                ║
     ║               Sidebar UI • Delta Compatible • Android                     ║
@@ -79,11 +79,15 @@ local CFG = {
     SellInterval = 60,
     FavRarities = {[6]=true, [7]=true}, -- Mythic, Secret
     WeatherTargets = {},
+    -- BLATANT MODE: Ultra-fast settings
+    CompleteDelay = 0.01,  -- Delay setelah Complete
+    CancelDelay = 0.01,    -- Delay setelah Cancel
 }
 
 local STATE = {
     Fishing = false,
     Turbo = true,
+    Blatant = false,    -- BLATANT MODE: Flash speed!
     AutoGreat = true,
     AutoSell = false,
     AutoFav = false,
@@ -199,16 +203,27 @@ local function Light(fn)
 end
 
 --// ══════════════════════════════════════════════════════════════════════════
---// SECTION 9: ULTRA-TURBO FISHING LOGIC (3+ Ikan Cepat)
+--// SECTION 9: FISHING LOGIC (Normal, Turbo, Blatant)
 --// ══════════════════════════════════════════════════════════════════════════
 local function Fish()
     if STATE.AutoGreat then pcall(function() R.AutoGreat:InvokeServer(true) end) end
     pcall(function() R.Cancel:InvokeServer() end)
-    task.wait(0.03)
+    task.wait(0.02)
     
     while STATE.Fishing do
-        if STATE.Turbo then
-            -- ULTRA TURBO: Parallel calls + minimal delays
+        if STATE.Blatant then
+            -- ⚡ BLATANT MODE: FLASH SPEED! Minimal delays
+            Light(function() R.Charge:InvokeServer() end)
+            Light(function() R.Request:InvokeServer(unpack(Args)) end)
+            task.wait(0.01)  -- Tiny wait for server
+            
+            pcall(function() R.Complete:FireServer() end)
+            task.wait(CFG.CompleteDelay)
+            pcall(function() R.Cancel:InvokeServer() end)
+            task.wait(CFG.CancelDelay)
+            
+        elseif STATE.Turbo then
+            -- TURBO: Parallel calls + optimized delays
             Light(function() R.Charge:InvokeServer() end)
             task.wait(0.005)
             Light(function() R.Request:InvokeServer(unpack(Args)) end)
@@ -219,7 +234,7 @@ local function Fish()
             pcall(function() R.Cancel:InvokeServer() end)
             task.wait(0.005)
         else
-            -- Normal mode
+            -- NORMAL: Standard fishing
             pcall(function() R.Charge:InvokeServer() end)
             task.wait(0.05)
             pcall(function() R.Request:InvokeServer(unpack(Args)) end)
@@ -241,7 +256,8 @@ local function StartFish()
     if STATE.Fishing then return end
     STATE.Fishing = true
     task.spawn(Fish)
-    print("[FishIt] Mancing dimulai", STATE.Turbo and "(TURBO)" or "(Normal)")
+    local mode = STATE.Blatant and "(BLATANT ⚡)" or (STATE.Turbo and "(TURBO)" or "(Normal)")
+    print("[FishIt] Mancing dimulai", mode)
 end
 
 local function StopFish()
@@ -926,9 +942,18 @@ Toggle(fishPage, "🎣 MULAI MANCING", false, function(v)
 end)
 Dropdown(fishPage, "Mode", {"Turbo", "Normal"}, function(v)
     STATE.Turbo = (v == "Turbo")
+    STATE.Blatant = false  -- Reset blatant when changing mode
 end)
 Toggle(fishPage, "Auto Perfect", true, function(v) STATE.AutoGreat = v end)
 Button(fishPage, "🔧 Reset Stuck", Unstuck)
+
+Section(fishPage, "⚡ BLATANT MODE")
+Toggle(fishPage, "⚡ Blatant Mode (Flash!)", false, function(v)
+    STATE.Blatant = v
+    if v then STATE.Turbo = true end  -- Blatant requires turbo base
+end)
+NumberInput(fishPage, "Complete Delay", 0.01, 0, 0.5, function(v) CFG.CompleteDelay = v end)
+NumberInput(fishPage, "Cancel Delay", 0.01, 0, 0.5, function(v) CFG.CancelDelay = v end)
 
 Section(fishPage, "PENGATURAN DELAY")
 NumberInput(fishPage, "Jeda Lempar", 0.9, 0.5, 3, function(v) CFG.ChargeDelay = v end)
